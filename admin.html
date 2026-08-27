@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokyo Bomet - Dashboard</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<video class="bg-video" autoplay muted loop playsinline>
+  <source src="https://res.cloudinary.com/kihyxfyk/video/upload/v1787825761/Kavcom_Expert_Private_Limited_MP4.mp4" type="video/mp4">
+</video>
+<div class="bg-overlay"></div>
+
+<div id="loading-screen"><div class="loader-logo">TOKYO BOMET</div></div>
+
+<header class="top-bar">
+  <div class="brand-mini">TOKYO <span>BOMET</span> ADMIN</div>
+  <button class="icon-btn" onclick="handleLogout()">Logout</button>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="upload">Upload</button>
+  <button class="tab-btn" data-tab="requests">Requests</button>
+  <button class="tab-btn" data-tab="recommend">Recommend</button>
+  <button class="tab-btn" data-tab="analytics">Analytics</button>
+</div>
+
+<div class="tab-content">
+
+  <section id="tab-upload" class="tab-pane active">
+    <h2 class="section-title">Upload a New Product Video</h2>
+    <div class="admin-card">
+      <input type="file" id="videoFile" accept="video/*">
+      <input type="text" id="videoCaption" placeholder="Caption (e.g. Blue Nike Dunks - KES 4500)">
+      <p class="error-msg" id="uploadError"></p>
+      <p class="success-msg" id="uploadSuccess"></p>
+      <button class="btn-primary-full" onclick="uploadVideo()">Upload Video</button>
+    </div>
+  </section>
+
+  <section id="tab-requests" class="tab-pane">
+    <h2 class="section-title">Customer Requests</h2>
+    <p class="placeholder-text">Coming in the next step.</p>
+  </section>
+
+  <section id="tab-recommend" class="tab-pane">
+    <h2 class="section-title">Send a Recommendation</h2>
+    <p class="placeholder-text">Coming in the next step.</p>
+  </section>
+
+  <section id="tab-analytics" class="tab-pane">
+    <h2 class="section-title">Visitor Analytics</h2>
+    <p class="placeholder-text">Coming in the next step.</p>
+  </section>
+
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { doc, getDoc, collection, addDoc }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  function showLoading(show) {
+    document.getElementById('loading-screen').classList.toggle('active', show);
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user || sessionStorage.getItem('adminVerified') !== 'true') {
+      window.location.href = "index.html";
+      return;
+    }
+    const adminDoc = await getDoc(doc(db, "admins", user.uid));
+    if (!adminDoc.exists()) {
+      window.location.href = "index.html";
+    }
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  window.uploadVideo = async function() {
+    const fileInput = document.getElementById('videoFile');
+    const caption = document.getElementById('videoCaption').value.trim();
+    const errorMsg = document.getElementById('uploadError');
+    const successMsg = document.getElementById('uploadSuccess');
+    errorMsg.innerText = '';
+    successMsg.innerText = '';
+
+    if (!fileInput.files[0]) { errorMsg.innerText = "Choose a video file first"; return; }
+
+    showLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      formData.append('upload_preset', 'tokyo-bomet-uploads');
+
+      const res = await fetch('https://api.cloudinary.com/v1_1/kihyxfyk/video/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (!data.secure_url) throw new Error("Upload failed");
+
+      await addDoc(collection(db, "videos"), {
+        videoUrl: data.secure_url,
+        caption: caption,
+        createdAt: new Date().toISOString()
+      });
+
+      successMsg.innerText = "Video uploaded and posted to the feed!";
+      fileInput.value = '';
+      document.getElementById('videoCaption').value = '';
+    } catch (e) {
+      errorMsg.innerText = "Upload failed. Check your connection and try again.";
+    }
+    showLoading(false);
+  }
+
+  window.handleLogout = async function() {
+    sessionStorage.removeItem('adminVerified');
+    await signOut(auth);
+    window.location.href = "index.html";
+  }
+</script>
+</body>
+</html>
