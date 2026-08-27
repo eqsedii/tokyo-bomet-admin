@@ -1,0 +1,76 @@
+body { overflow-y:auto; height:auto; min-height:100vh; }
+
+.top-bar {
+  position:sticky; top:0; z-index:10;
+  display:flex; justify-content:space-between; align-items:center;
+  padding:14px 18px;
+  background:rgba(43,10,78,0.95);
+  backdrop-filter:blur(6px);
+}
+
+.brand-mini { font-weight:900; font-size:16px; color:#fff; letter-spacing:1px; }
+.brand-mini span { color:#f4c542; }
+
+.icon-btn {
+  background:transparent; border:1px solid #f4c542; color:#f4c542;
+  padding:6px 14px; border-radius:20px; font-size:13px;
+}
+
+.tabs {
+  display:flex;
+  overflow-x:auto;
+  gap:8px;
+  padding:14px 16px 0;
+}
+
+.tab-btn {
+  flex-shrink:0;
+  padding:10px 16px;
+  border-radius:20px;
+  border:1px solid rgba(244,197,66,0.4);
+  background:transparent;
+  color:#e0c9ff;
+  font-size:13px;
+  font-weight:600;
+}
+
+.tab-btn.active { background:#f4c542; color:#2b0a4e; border-color:#f4c542; }
+
+.tab-content { padding:16px; max-width:520px; margin:0 auto; }
+
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
+.section-title { color:#f4c542; font-size:19px; margin-bottom:14px; }
+
+.admin-card {
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(244,197,66,0.25);
+  border-radius:14px;
+  padding:18px;
+}
+
+.admin-card input, .admin-card textarea, .admin-card select {
+  width:100%;
+  padding:12px;
+  margin-bottom:12px;
+  border-radius:8px;
+  border:none;
+  background:rgba(255,255,255,0.9);
+  font-size:14px;
+}
+
+.btn-primary-full {
+  width:100%;
+  padding:13px;
+  border:none;
+  border-radius:8px;
+  background:#f4c542;
+  color:#2b0a4e;
+  font-weight:700;
+  font-size:15px;
+}
+
+.error-msg { color:#ff6b6b; font-size:13px; margin-bottom:8px; min-height:16px; }
+.success-msg { color:#7ee787; font-size:13px; margin-bottom:8px; min-height:16px; }
+.placeholder-text { color:#c9b3ea; font-size:14px; }
