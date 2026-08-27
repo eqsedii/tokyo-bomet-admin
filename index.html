@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokyo Bomet - Admin</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<video class="bg-video" autoplay muted loop playsinline>
+  <source src="https://res.cloudinary.com/kihyxfyk/video/upload/v1787825761/Kavcom_Expert_Private_Limited_MP4.mp4" type="video/mp4">
+</video>
+<div class="bg-overlay"></div>
+
+<div id="loading-screen"><div class="loader-logo">TOKYO BOMET</div></div>
+
+<div class="welcome-container">
+  <div class="logo">TOKYO BOMET<span>ADMIN PANEL</span></div>
+
+  <div class="auth-box">
+    <p class="error-msg" id="errorMsg"></p>
+
+    <div id="stage1">
+      <input type="email" id="adminEmail" placeholder="Admin Email">
+      <input type="password" id="adminPassword" placeholder="Password">
+      <button onclick="handleAdminLogin()">Continue</button>
+    </div>
+
+    <div id="stage2" style="display:none;">
+      <p style="font-size:13px;margin-bottom:10px;color:#e0c9ff;">
+        Enter your secret security code
+      </p>
+      <input type="text" id="codeInput" placeholder="Security code">
+      <button onclick="verifyCode()">Enter Admin Panel</button>
+      <p class="switch-text"><a onclick="showHint()">Forgot code?</a></p>
+      <p id="hintText" style="font-size:12px;color:#f4c542;margin-top:8px;display:none;"></p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { signInWithEmailAndPassword, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { doc, getDoc }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  function showLoading(show) {
+    document.getElementById('loading-screen').classList.toggle('active', show);
+  }
+
+  let adminData = null;
+
+  window.handleAdminLogin = async function() {
+    const email = document.getElementById('adminEmail').value;
+    const password = document.getElementById('adminPassword').value;
+    const errorMsg = document.getElementById('errorMsg');
+    errorMsg.innerText = '';
+    if (!email || !password) { errorMsg.innerText = "Fill in all fields"; return; }
+
+    showLoading(true);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const adminDoc = await getDoc(doc(db, "admins", cred.user.uid));
+      if (!adminDoc.exists()) {
+        await signOut(auth);
+        errorMsg.innerText = "This account has no admin access.";
+        showLoading(false);
+        return;
+      }
+      adminData = adminDoc.data();
+      document.getElementById('stage1').style.display = 'none';
+      document.getElementById('stage2').style.display = 'block';
+      showLoading(false);
+    } catch (e) {
+      errorMsg.innerText = "Login failed. Check email/password.";
+      showLoading(false);
+    }
+  }
+
+  window.verifyCode = function() {
+    const code = document.getElementById('codeInput').value.trim();
+    const errorMsg = document.getElementById('errorMsg');
+    if (adminData && code === adminData.securityCode) {
+      sessionStorage.setItem('adminVerified', 'true');
+      window.location.href = "admin.html";
+    } else {
+      errorMsg.innerText = "Incorrect security code.";
+    }
+  }
+
+  window.showHint = function() {
+    const hintText = document.getElementById('hintText');
+    hintText.innerText = "Hint: " + (adminData?.securityHint || "No hint set");
+    hintText.style.display = 'block';
+  }
+</script>
+</body>
+</html>
