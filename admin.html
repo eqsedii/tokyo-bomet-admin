@@ -37,7 +37,8 @@
     <div class="admin-card">
       <select id="photoCategory"></select>
       <input type="file" id="photoFile" accept="image/*">
-      <input type="text" id="photoCaption" placeholder="Caption (e.g. Green Ankara Dress - KES 2500)">
+      <input type="text" id="photoCaption" placeholder="Caption (e.g. Green Ankara Dress)">
+      <input type="number" id="photoPrice" placeholder="Price (KES)" min="0">
       <p class="error-msg" id="photoUploadError"></p>
       <p class="success-msg" id="photoUploadSuccess"></p>
       <div id="photoProgressWrap" class="progress-wrap" style="display:none;">
@@ -52,7 +53,8 @@
       <p class="tip-text">Videos are automatically trimmed to 30 seconds and resized to 720p on upload.</p>
       <select id="videoCategory"></select>
       <input type="file" id="videoFile" accept="video/*">
-      <input type="text" id="videoCaption" placeholder="Caption (e.g. Blue Nike Dunks - KES 4500)">
+      <input type="text" id="videoCaption" placeholder="Caption (e.g. Blue Nike Dunks)">
+      <input type="number" id="videoPrice" placeholder="Price (KES)" min="0">
       <p class="error-msg" id="uploadError"></p>
       <p class="success-msg" id="uploadSuccess"></p>
       <div id="progressWrap" class="progress-wrap" style="display:none;">
@@ -187,9 +189,26 @@
     showLoading(false);
   }
 
+  document.getElementById('photoCategory').addEventListener('change', () => {
+    const captionInput = document.getElementById('photoCaption');
+    if (!captionInput.value.trim()) {
+      const cat = document.getElementById('photoCategory').value;
+      captionInput.value = cat ? `${cat} - New Arrival` : '';
+    }
+  });
+
+  document.getElementById('videoCategory').addEventListener('change', () => {
+    const captionInput = document.getElementById('videoCaption');
+    if (!captionInput.value.trim()) {
+      const cat = document.getElementById('videoCategory').value;
+      captionInput.value = cat ? `${cat} - New Arrival` : '';
+    }
+  });
+
   window.uploadVideo = function() {
     const fileInput = document.getElementById('videoFile');
     const caption = document.getElementById('videoCaption').value.trim();
+    const price = document.getElementById('videoPrice').value;
     const category = document.getElementById('videoCategory').value;
     const errorMsg = document.getElementById('uploadError');
     const successMsg = document.getElementById('uploadSuccess');
@@ -236,6 +255,7 @@
           await addDoc(collection(db, "videos"), {
             videoUrl: data.secure_url,
             caption: caption,
+            price: price ? Number(price) : 0,
             category: category,
             createdAt: new Date().toISOString()
           });
@@ -243,6 +263,7 @@
           successMsg.innerText = "Video uploaded and posted to the feed!";
           fileInput.value = '';
           document.getElementById('videoCaption').value = '';
+          document.getElementById('videoPrice').value = '';
         } catch (e) {
           errorMsg.innerText = "Uploaded to storage, but failed to save to feed.";
         }
@@ -268,6 +289,7 @@
   window.uploadPhoto = function() {
     const fileInput = document.getElementById('photoFile');
     const caption = document.getElementById('photoCaption').value.trim();
+    const price = document.getElementById('photoPrice').value;
     const category = document.getElementById('photoCategory').value;
     const errorMsg = document.getElementById('photoUploadError');
     const successMsg = document.getElementById('photoUploadSuccess');
@@ -314,6 +336,7 @@
           await addDoc(collection(db, "photos"), {
             photoUrl: data.secure_url,
             caption: caption,
+            price: price ? Number(price) : 0,
             category: category,
             createdAt: new Date().toISOString()
           });
@@ -321,6 +344,7 @@
           successMsg.innerText = "Photo uploaded and posted to the feed!";
           fileInput.value = '';
           document.getElementById('photoCaption').value = '';
+          document.getElementById('photoPrice').value = '';
         } catch (e) {
           errorMsg.innerText = "Uploaded to storage, but failed to save to feed.";
         }
