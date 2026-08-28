@@ -89,15 +89,15 @@ body { overflow-y:auto; height:auto; min-height:100vh; }
 .error-msg { color:#ff6b6b; font-size:13px; margin-bottom:8px; min-height:16px; }
 .success-msg { color:#7ee787; font-size:13px; margin-bottom:8px; min-height:16px; }
 .placeholder-text { color:#c9b3ea; font-size:14px; }
-.tip-text { color:#f4c542; font-size:12px; margin-bottom:12px; }
+.tip-text { color:#f4c542; font-size:12px; margin-bottom:12px; line-height:1.5; }
 
 .progress-wrap {
   width:100%;
-  height:10px;
+  height:8px;
   background:rgba(255,255,255,0.15);
   border-radius:6px;
   overflow:hidden;
-  margin-bottom:6px;
+  margin-bottom:4px;
 }
 
 .progress-bar {
@@ -136,3 +136,36 @@ body { overflow-y:auto; height:auto; min-height:100vh; }
   cursor:pointer;
   padding:0;
 }
+
+.queue-list {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-bottom:14px;
+  max-height:280px;
+  overflow-y:auto;
+}
+
+.queue-item {
+  background:rgba(0,0,0,0.25);
+  border:1px solid rgba(244,197,66,0.2);
+  border-radius:8px;
+  padding:10px;
+}
+
+.queue-name {
+  color:#fff;
+  font-size:11px;
+  margin-bottom:6px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.queue-status {
+  color:#e0c9ff;
+  font-size:11px;
+}
+
+.queue-success { color:#7ee787; }
+.queue-fail { color:#ff6b6b; }
