@@ -22,7 +22,7 @@
 </header>
 
 <div class="tabs">
-  <button class="tab-btn active" data-tab="upload">Products</button>
+  <button class="tab-btn active" data-tab="upload">Upload</button>
   <button class="tab-btn" data-tab="orders">Orders</button>
   <button class="tab-btn" data-tab="requests">Requests</button>
   <button class="tab-btn" data-tab="recommend">Recommend</button>
@@ -33,9 +33,11 @@
 
   <section id="tab-upload" class="tab-pane active">
 
+    <a href="products.html" class="manage-products-btn">📦 Manage Products →</a>
+
     <h2 class="section-title">Create a Product</h2>
     <div class="admin-card">
-      <p class="tip-text">Add all photos and the video for this ONE product together — they'll be grouped as a single item customers can swipe through.</p>
+      <p class="tip-text">Tap "Create Product" and this form clears right away — you can start the next product immediately while this one finishes uploading in the background. Watch progress in the tracker (bottom right). Don't close this tab until all jobs show "Done."</p>
       <input type="text" id="productName" placeholder="Product Name (e.g. Blue Ankara Dress)">
       <select id="productCategory"></select>
       <input type="number" id="productPrice" placeholder="Price (KES)" min="0">
@@ -45,13 +47,8 @@
       <label class="field-label">Video (optional, one)</label>
       <input type="file" id="productVideo" accept="video/*">
       <p class="error-msg" id="createError"></p>
-      <p class="success-msg" id="createSuccess"></p>
-      <div id="createQueueList" class="queue-list"></div>
       <button class="btn-primary-full" id="createBtn" onclick="createProduct()">Create Product</button>
     </div>
-
-    <h2 class="section-title">Manage Products</h2>
-    <div id="productList"></div>
 
     <h2 class="section-title">Manage Categories</h2>
     <div class="admin-card">
@@ -85,11 +82,19 @@
 
 </div>
 
+<div id="jobTracker" class="job-tracker">
+  <div class="job-tracker-header" id="jobTrackerHeader">
+    <span>Uploads (<span id="jobCount">0</span>)</span>
+    <span id="jobTrackerToggle">▾</span>
+  </div>
+  <div class="job-tracker-body" id="jobTrackerBody"></div>
+</div>
+
 <script type="module">
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { doc, getDoc, updateDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy }
+  import { doc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   function showLoading(show) {
@@ -107,7 +112,6 @@
       return;
     }
     loadCategories();
-    loadProducts();
   });
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -119,20 +123,20 @@
     });
   });
 
-  let categoryNames = [];
+  document.getElementById('jobTrackerHeader').addEventListener('click', () => {
+    document.getElementById('jobTracker').classList.toggle('collapsed');
+  });
 
   async function loadCategories() {
     const listDiv = document.getElementById('categoryList');
     const productSelect = document.getElementById('productCategory');
     listDiv.innerHTML = '';
     productSelect.innerHTML = '';
-    categoryNames = [];
     try {
       const q = query(collection(db, "categories"), orderBy("name"));
       const snap = await getDocs(q);
       snap.forEach((docSnap) => {
         const c = docSnap.data();
-        categoryNames.push(c.name);
 
         const chip = document.createElement('span');
         chip.className = 'category-chip';
@@ -194,9 +198,7 @@
       xhr.open('POST', `https://api.cloudinary.com/v1_1/kihyxfyk/${resourceType}/upload`);
 
       xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) {
-          onProgress(Math.round((e.loaded / e.total) * 100));
-        }
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       };
 
       xhr.onload = function() {
@@ -225,7 +227,29 @@
     await Promise.all(workers);
   }
 
-  window.createProduct = async function() {
+  let jobCounter = 0;
+
+  function createJobUI(jobId, productName, fileCount) {
+    const body = document.getElementById('jobTrackerBody');
+    const job = document.createElement('div');
+    job.className = 'job-item';
+    job.id = `job-${jobId}`;
+    job.innerHTML = `
+      <p class="job-name">${productName || 'Untitled product'}</p>
+      <div class="progress-wrap"><div class="progress-bar" id="job-bar-${jobId}"></div></div>
+      <p class="job-status" id="job-status-${jobId}">Starting... 0/${fileCount} files</p>
+    `;
+    body.appendChild(job);
+    updateJobCount();
+    document.getElementById('jobTracker').classList.add('visible');
+  }
+
+  function updateJobCount() {
+    const activeJobs = document.querySelectorAll('.job-item:not(.job-done):not(.job-error)').length;
+    document.getElementById('jobCount').innerText = activeJobs;
+  }
+
+  window.createProduct = function() {
     const name = document.getElementById('productName').value.trim();
     const category = document.getElementById('productCategory').value;
     const price = document.getElementById('productPrice').value;
@@ -233,12 +257,8 @@
     const photoInput = document.getElementById('productPhotos');
     const videoInput = document.getElementById('productVideo');
     const errorMsg = document.getElementById('createError');
-    const successMsg = document.getElementById('createSuccess');
-    const createBtn = document.getElementById('createBtn');
-    const queueList = document.getElementById('createQueueList');
 
     errorMsg.innerText = '';
-    successMsg.innerText = '';
 
     if (!name) { errorMsg.innerText = "Product name is required"; return; }
     if (!category) { errorMsg.innerText = "Choose a category"; return; }
@@ -251,53 +271,53 @@
       return;
     }
 
-    createBtn.disabled = true;
-    queueList.innerHTML = '';
-    const media = [];
-
     const allFiles = [
       ...photoFiles.map(f => ({ file: f, type: 'photo', resourceType: 'image' })),
       ...(videoFile ? [{ file: videoFile, type: 'video', resourceType: 'video' }] : [])
     ];
 
-    const rows = allFiles.map((f, i) => {
-      const row = document.createElement('div');
-      row.className = 'queue-item';
-      row.innerHTML = `
-        <p class="queue-name">${f.file.name}</p>
-        <div class="progress-wrap"><div class="progress-bar" id="create-bar-${i}"></div></div>
-        <p class="queue-status" id="create-status-${i}">Waiting...</p>
-      `;
-      queueList.appendChild(row);
-      return row;
-    });
+    const jobId = ++jobCounter;
+    createJobUI(jobId, name, allFiles.length);
 
+    // Reset form immediately so the admin can start the next product
+    document.getElementById('productName').value = '';
+    document.getElementById('productPrice').value = '';
+    document.getElementById('productCaption').value = '';
+    photoInput.value = '';
+    videoInput.value = '';
+
+    // Run the actual upload in the background (not awaited here)
+    runProductJob(jobId, name, category, price, caption, allFiles);
+  }
+
+  async function runProductJob(jobId, name, category, price, caption, allFiles) {
+    const bar = document.getElementById(`job-bar-${jobId}`);
+    const status = document.getElementById(`job-status-${jobId}`);
+    const jobEl = document.getElementById(`job-${jobId}`);
+    const media = [];
+    let completed = 0;
     let failCount = 0;
 
-    const tasks = allFiles.map((f, i) => async () => {
-      const bar = document.getElementById(`create-bar-${i}`);
-      const status = document.getElementById(`create-status-${i}`);
-      status.innerText = 'Uploading... 0%';
+    const tasks = allFiles.map((f) => async () => {
       try {
         const data = await uploadOneFile(f.file, f.resourceType, (p) => {
-          bar.style.width = p + '%';
-          status.innerText = `Uploading... ${p}%`;
+          const overallPercent = Math.round(((completed + p / 100) / allFiles.length) * 100);
+          bar.style.width = overallPercent + '%';
         });
         media.push({ type: f.type, url: data.secure_url });
-        status.innerText = '✅ Done';
-        status.classList.add('queue-success');
       } catch (e) {
-        status.innerText = '❌ Failed';
-        status.classList.add('queue-fail');
         failCount++;
       }
+      completed++;
+      status.innerText = `Uploading... ${completed}/${allFiles.length} files`;
     });
 
     await runQueue(tasks, 3);
 
     if (media.length === 0) {
-      errorMsg.innerText = "All uploads failed. Try again.";
-      createBtn.disabled = false;
+      status.innerText = '❌ Failed — no files uploaded';
+      jobEl.classList.add('job-error');
+      updateJobCount();
       return;
     }
 
@@ -307,138 +327,20 @@
         caption: caption,
         price: price ? Number(price) : 0,
         category: category,
+        inStock: true,
         media: media,
         createdAt: new Date().toISOString()
       });
-      successMsg.innerText = failCount === 0
-        ? "Product created and posted to the feed!"
-        : `Product created with ${media.length} media file(s); ${failCount} failed to upload.`;
-      document.getElementById('productName').value = '';
-      document.getElementById('productPrice').value = '';
-      document.getElementById('productCaption').value = '';
-      photoInput.value = '';
-      videoInput.value = '';
-      await loadProducts();
+      bar.style.width = '100%';
+      status.innerText = failCount === 0
+        ? '✅ Done — posted to feed'
+        : `✅ Done with ${failCount} file(s) failed`;
+      jobEl.classList.add('job-done');
     } catch (e) {
-      errorMsg.innerText = "Uploaded media but failed to save product. Try again.";
+      status.innerText = '❌ Uploaded media but failed to save product';
+      jobEl.classList.add('job-error');
     }
-    createBtn.disabled = false;
-  }
-
-  async function loadProducts() {
-    const listDiv = document.getElementById('productList');
-    listDiv.innerHTML = '<p class="placeholder-text">Loading products...</p>';
-    try {
-      const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
-      const snap = await getDocs(q);
-      if (snap.empty) {
-        listDiv.innerHTML = '<p class="placeholder-text">No products yet. Create one above.</p>';
-        return;
-      }
-      listDiv.innerHTML = '';
-      snap.forEach((docSnap) => {
-        const p = docSnap.data();
-        const id = docSnap.id;
-        const thumb = (p.media && p.media[0]) ? p.media[0] : null;
-
-        const card = document.createElement('div');
-        card.className = 'admin-card product-manage-card';
-        card.innerHTML = `
-          <div class="product-manage-top">
-            ${thumb
-              ? (thumb.type === 'video'
-                  ? `<video src="${thumb.url}" class="product-thumb" muted></video>`
-                  : `<img src="${thumb.url}" class="product-thumb">`)
-              : `<div class="product-thumb"></div>`}
-            <span class="media-count">${(p.media || []).length} media file(s)</span>
-          </div>
-          <input type="text" class="edit-name" value="${(p.name || '').replace(/"/g, '&quot;')}" placeholder="Product Name">
-          <select class="edit-category"></select>
-          <input type="number" class="edit-price" value="${p.price || 0}" placeholder="Price (KES)">
-          <textarea class="edit-caption" placeholder="Description">${p.caption || ''}</textarea>
-          <label class="field-label">Add more photos to this product</label>
-          <input type="file" class="edit-add-photos" accept="image/*" multiple>
-          <p class="error-msg edit-error"></p>
-          <p class="success-msg edit-success"></p>
-          <div class="edit-actions">
-            <button class="btn-secondary-full edit-save-btn">Save Changes</button>
-            <button class="btn-danger-full edit-delete-btn">Delete Product</button>
-          </div>
-        `;
-        listDiv.appendChild(card);
-
-        const catSelect = card.querySelector('.edit-category');
-        categoryNames.forEach(catName => {
-          const opt = document.createElement('option');
-          opt.value = catName;
-          opt.innerText = catName;
-          if (catName === p.category) opt.selected = true;
-          catSelect.appendChild(opt);
-        });
-
-        card.querySelector('.edit-save-btn').addEventListener('click', () => saveProductEdits(id, card));
-        card.querySelector('.edit-delete-btn').addEventListener('click', () => deleteProduct(id));
-      });
-    } catch (e) {
-      listDiv.innerHTML = '<p class="placeholder-text">Could not load products.</p>';
-    }
-  }
-
-  async function saveProductEdits(id, card) {
-    const name = card.querySelector('.edit-name').value.trim();
-    const category = card.querySelector('.edit-category').value;
-    const price = card.querySelector('.edit-price').value;
-    const caption = card.querySelector('.edit-caption').value.trim();
-    const addPhotosInput = card.querySelector('.edit-add-photos');
-    const errorMsg = card.querySelector('.edit-error');
-    const successMsg = card.querySelector('.edit-success');
-    errorMsg.innerText = '';
-    successMsg.innerText = '';
-
-    if (!name) { errorMsg.innerText = "Name can't be empty"; return; }
-
-    showLoading(true);
-    try {
-      const productRef = doc(db, "products", id);
-      const newPhotoFiles = Array.from(addPhotosInput.files || []);
-      let newMedia = [];
-
-      if (newPhotoFiles.length > 0) {
-        for (const file of newPhotoFiles) {
-          const data = await uploadOneFile(file, 'image', () => {});
-          newMedia.push({ type: 'photo', url: data.secure_url });
-        }
-        const existingSnap = await getDoc(productRef);
-        const existingMedia = existingSnap.exists() ? (existingSnap.data().media || []) : [];
-        newMedia = existingMedia.concat(newMedia);
-      }
-
-      const updates = {
-        name: name,
-        category: category,
-        price: price ? Number(price) : 0,
-        caption: caption
-      };
-      if (newMedia.length > 0) updates.media = newMedia;
-
-      await updateDoc(productRef, updates);
-      successMsg.innerText = "Saved!";
-      addPhotosInput.value = '';
-      await loadProducts();
-    } catch (e) {
-      errorMsg.innerText = "Failed to save changes.";
-    }
-    showLoading(false);
-  }
-
-  async function deleteProduct(id) {
-    if (!confirm("Delete this product permanently? This cannot be undone.")) return;
-    showLoading(true);
-    try {
-      await deleteDoc(doc(db, "products", id));
-      await loadProducts();
-    } catch (e) { /* ignore */ }
-    showLoading(false);
+    updateJobCount();
   }
 
   window.handleLogout = async function() {
