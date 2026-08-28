@@ -22,7 +22,7 @@
 </header>
 
 <div class="tabs">
-  <button class="tab-btn active" data-tab="upload">Upload</button>
+  <button class="tab-btn active" data-tab="upload">Products</button>
   <button class="tab-btn" data-tab="orders">Orders</button>
   <button class="tab-btn" data-tab="requests">Requests</button>
   <button class="tab-btn" data-tab="recommend">Recommend</button>
@@ -33,31 +33,25 @@
 
   <section id="tab-upload" class="tab-pane active">
 
-    <h2 class="section-title">Batch Upload Photos</h2>
+    <h2 class="section-title">Create a Product</h2>
     <div class="admin-card">
-      <p class="tip-text">Select as many photos as you like at once. Same category, caption, and price get applied to all — you can fine-tune individual items later. Uploads run 3 at a time in the background.</p>
-      <select id="photoCategory"></select>
-      <input type="file" id="photoFiles" accept="image/*" multiple>
-      <input type="text" id="photoCaption" placeholder="Caption for this batch (e.g. Green Ankara Dress)">
-      <input type="number" id="photoPrice" placeholder="Price (KES) — applies to whole batch" min="0">
-      <p class="error-msg" id="photoUploadError"></p>
-      <p class="success-msg" id="photoUploadSuccess"></p>
-      <div id="photoQueueList" class="queue-list"></div>
-      <button class="btn-primary-full" id="photoUploadBtn" onclick="uploadBatch('photo')">Upload Photos</button>
+      <p class="tip-text">Add all photos and the video for this ONE product together — they'll be grouped as a single item customers can swipe through.</p>
+      <input type="text" id="productName" placeholder="Product Name (e.g. Blue Ankara Dress)">
+      <select id="productCategory"></select>
+      <input type="number" id="productPrice" placeholder="Price (KES)" min="0">
+      <textarea id="productCaption" placeholder="Description (size, material, notes...)"></textarea>
+      <label class="field-label">Photos (choose multiple)</label>
+      <input type="file" id="productPhotos" accept="image/*" multiple>
+      <label class="field-label">Video (optional, one)</label>
+      <input type="file" id="productVideo" accept="video/*">
+      <p class="error-msg" id="createError"></p>
+      <p class="success-msg" id="createSuccess"></p>
+      <div id="createQueueList" class="queue-list"></div>
+      <button class="btn-primary-full" id="createBtn" onclick="createProduct()">Create Product</button>
     </div>
 
-    <h2 class="section-title">Batch Upload Videos</h2>
-    <div class="admin-card">
-      <p class="tip-text">Videos auto-trim to 30 sec and resize to 720p. Record at 720p and upload on WiFi for the fastest results.</p>
-      <select id="videoCategory"></select>
-      <input type="file" id="videoFiles" accept="video/*" multiple>
-      <input type="text" id="videoCaption" placeholder="Caption for this batch (e.g. Blue Nike Dunks)">
-      <input type="number" id="videoPrice" placeholder="Price (KES) — applies to whole batch" min="0">
-      <p class="error-msg" id="uploadError"></p>
-      <p class="success-msg" id="uploadSuccess"></p>
-      <div id="videoQueueList" class="queue-list"></div>
-      <button class="btn-primary-full" id="uploadBtn" onclick="uploadBatch('video')">Upload Videos</button>
-    </div>
+    <h2 class="section-title">Manage Products</h2>
+    <div id="productList"></div>
 
     <h2 class="section-title">Manage Categories</h2>
     <div class="admin-card">
@@ -95,7 +89,7 @@
   import { auth, db } from './firebase-config.js';
   import { onAuthStateChanged, signOut }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { doc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy }
+  import { doc, getDoc, updateDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   function showLoading(show) {
@@ -113,6 +107,7 @@
       return;
     }
     loadCategories();
+    loadProducts();
   });
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -124,33 +119,30 @@
     });
   });
 
+  let categoryNames = [];
+
   async function loadCategories() {
     const listDiv = document.getElementById('categoryList');
-    const videoSelect = document.getElementById('videoCategory');
-    const photoSelect = document.getElementById('photoCategory');
+    const productSelect = document.getElementById('productCategory');
     listDiv.innerHTML = '';
-    videoSelect.innerHTML = '';
-    photoSelect.innerHTML = '';
+    productSelect.innerHTML = '';
+    categoryNames = [];
     try {
       const q = query(collection(db, "categories"), orderBy("name"));
       const snap = await getDocs(q);
       snap.forEach((docSnap) => {
         const c = docSnap.data();
+        categoryNames.push(c.name);
 
         const chip = document.createElement('span');
         chip.className = 'category-chip';
         chip.innerHTML = `${c.name} <button class="chip-remove" data-id="${docSnap.id}">✕</button>`;
         listDiv.appendChild(chip);
 
-        const opt1 = document.createElement('option');
-        opt1.value = c.name;
-        opt1.innerText = c.name;
-        videoSelect.appendChild(opt1);
-
-        const opt2 = document.createElement('option');
-        opt2.value = c.name;
-        opt2.innerText = c.name;
-        photoSelect.appendChild(opt2);
+        const opt = document.createElement('option');
+        opt.value = c.name;
+        opt.innerText = c.name;
+        productSelect.appendChild(opt);
       });
       document.querySelectorAll('.chip-remove').forEach(btn => {
         btn.addEventListener('click', () => removeCategory(btn.dataset.id));
@@ -184,19 +176,11 @@
     showLoading(false);
   }
 
-  document.getElementById('photoCategory').addEventListener('change', () => {
-    const captionInput = document.getElementById('photoCaption');
+  document.getElementById('productCategory').addEventListener('change', () => {
+    const captionInput = document.getElementById('productCaption');
     if (!captionInput.value.trim()) {
-      const cat = document.getElementById('photoCategory').value;
-      captionInput.value = cat ? `${cat} - New Arrival` : '';
-    }
-  });
-
-  document.getElementById('videoCategory').addEventListener('change', () => {
-    const captionInput = document.getElementById('videoCaption');
-    if (!captionInput.value.trim()) {
-      const cat = document.getElementById('videoCategory').value;
-      captionInput.value = cat ? `${cat} - New Arrival` : '';
+      const cat = document.getElementById('productCategory').value;
+      captionInput.value = cat ? `${cat} item.` : '';
     }
   });
 
@@ -211,8 +195,7 @@
 
       xhr.upload.onprogress = function(e) {
         if (e.lengthComputable) {
-          const percent = Math.round((e.loaded / e.total) * 100);
-          onProgress(percent);
+          onProgress(Math.round((e.loaded / e.total) * 100));
         }
       };
 
@@ -223,7 +206,6 @@
           reject(new Error('Upload failed'));
         }
       };
-
       xhr.onerror = function() { reject(new Error('Network error')); };
       xhr.send(formData);
     });
@@ -243,64 +225,67 @@
     await Promise.all(workers);
   }
 
-  window.uploadBatch = async function(kind) {
-    const isPhoto = kind === 'photo';
-    const fileInput = document.getElementById(isPhoto ? 'photoFiles' : 'videoFiles');
-    const caption = document.getElementById(isPhoto ? 'photoCaption' : 'videoCaption').value.trim();
-    const price = document.getElementById(isPhoto ? 'photoPrice' : 'videoPrice').value;
-    const category = document.getElementById(isPhoto ? 'photoCategory' : 'videoCategory').value;
-    const errorMsg = document.getElementById(isPhoto ? 'photoUploadError' : 'uploadError');
-    const successMsg = document.getElementById(isPhoto ? 'photoUploadSuccess' : 'uploadSuccess');
-    const uploadBtn = document.getElementById(isPhoto ? 'photoUploadBtn' : 'uploadBtn');
-    const queueList = document.getElementById(isPhoto ? 'photoQueueList' : 'videoQueueList');
-    const resourceType = isPhoto ? 'image' : 'video';
-    const collectionName = isPhoto ? 'photos' : 'videos';
-    const urlField = isPhoto ? 'photoUrl' : 'videoUrl';
+  window.createProduct = async function() {
+    const name = document.getElementById('productName').value.trim();
+    const category = document.getElementById('productCategory').value;
+    const price = document.getElementById('productPrice').value;
+    const caption = document.getElementById('productCaption').value.trim();
+    const photoInput = document.getElementById('productPhotos');
+    const videoInput = document.getElementById('productVideo');
+    const errorMsg = document.getElementById('createError');
+    const successMsg = document.getElementById('createSuccess');
+    const createBtn = document.getElementById('createBtn');
+    const queueList = document.getElementById('createQueueList');
 
     errorMsg.innerText = '';
     successMsg.innerText = '';
 
-    const files = Array.from(fileInput.files || []);
-    if (files.length === 0) { errorMsg.innerText = "Choose at least one file first"; return; }
-    if (!category) { errorMsg.innerText = "Add a category first (above)"; return; }
+    if (!name) { errorMsg.innerText = "Product name is required"; return; }
+    if (!category) { errorMsg.innerText = "Choose a category"; return; }
 
-    uploadBtn.disabled = true;
+    const photoFiles = Array.from(photoInput.files || []);
+    const videoFile = videoInput.files[0] || null;
+
+    if (photoFiles.length === 0 && !videoFile) {
+      errorMsg.innerText = "Add at least one photo or a video";
+      return;
+    }
+
+    createBtn.disabled = true;
     queueList.innerHTML = '';
+    const media = [];
 
-    const rows = files.map((file, i) => {
+    const allFiles = [
+      ...photoFiles.map(f => ({ file: f, type: 'photo', resourceType: 'image' })),
+      ...(videoFile ? [{ file: videoFile, type: 'video', resourceType: 'video' }] : [])
+    ];
+
+    const rows = allFiles.map((f, i) => {
       const row = document.createElement('div');
       row.className = 'queue-item';
       row.innerHTML = `
-        <p class="queue-name">${file.name}</p>
-        <div class="progress-wrap"><div class="progress-bar" id="${kind}-bar-${i}"></div></div>
-        <p class="queue-status" id="${kind}-status-${i}">Waiting...</p>
+        <p class="queue-name">${f.file.name}</p>
+        <div class="progress-wrap"><div class="progress-bar" id="create-bar-${i}"></div></div>
+        <p class="queue-status" id="create-status-${i}">Waiting...</p>
       `;
       queueList.appendChild(row);
       return row;
     });
 
-    let doneCount = 0;
     let failCount = 0;
 
-    const tasks = files.map((file, i) => async () => {
-      const bar = document.getElementById(`${kind}-bar-${i}`);
-      const status = document.getElementById(`${kind}-status-${i}`);
+    const tasks = allFiles.map((f, i) => async () => {
+      const bar = document.getElementById(`create-bar-${i}`);
+      const status = document.getElementById(`create-status-${i}`);
       status.innerText = 'Uploading... 0%';
       try {
-        const data = await uploadOneFile(file, resourceType, (percent) => {
-          bar.style.width = percent + '%';
-          status.innerText = `Uploading... ${percent}%`;
+        const data = await uploadOneFile(f.file, f.resourceType, (p) => {
+          bar.style.width = p + '%';
+          status.innerText = `Uploading... ${p}%`;
         });
-        await addDoc(collection(db, collectionName), {
-          [urlField]: data.secure_url,
-          caption: caption,
-          price: price ? Number(price) : 0,
-          category: category,
-          createdAt: new Date().toISOString()
-        });
+        media.push({ type: f.type, url: data.secure_url });
         status.innerText = '✅ Done';
         status.classList.add('queue-success');
-        doneCount++;
       } catch (e) {
         status.innerText = '❌ Failed';
         status.classList.add('queue-fail');
@@ -310,13 +295,150 @@
 
     await runQueue(tasks, 3);
 
-    uploadBtn.disabled = false;
-    if (failCount === 0) {
-      successMsg.innerText = `All ${doneCount} uploaded and posted to the feed!`;
-    } else {
-      errorMsg.innerText = `${doneCount} uploaded, ${failCount} failed. Failed ones can be retried by selecting them again.`;
+    if (media.length === 0) {
+      errorMsg.innerText = "All uploads failed. Try again.";
+      createBtn.disabled = false;
+      return;
     }
-    fileInput.value = '';
+
+    try {
+      await addDoc(collection(db, "products"), {
+        name: name,
+        caption: caption,
+        price: price ? Number(price) : 0,
+        category: category,
+        media: media,
+        createdAt: new Date().toISOString()
+      });
+      successMsg.innerText = failCount === 0
+        ? "Product created and posted to the feed!"
+        : `Product created with ${media.length} media file(s); ${failCount} failed to upload.`;
+      document.getElementById('productName').value = '';
+      document.getElementById('productPrice').value = '';
+      document.getElementById('productCaption').value = '';
+      photoInput.value = '';
+      videoInput.value = '';
+      await loadProducts();
+    } catch (e) {
+      errorMsg.innerText = "Uploaded media but failed to save product. Try again.";
+    }
+    createBtn.disabled = false;
+  }
+
+  async function loadProducts() {
+    const listDiv = document.getElementById('productList');
+    listDiv.innerHTML = '<p class="placeholder-text">Loading products...</p>';
+    try {
+      const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      if (snap.empty) {
+        listDiv.innerHTML = '<p class="placeholder-text">No products yet. Create one above.</p>';
+        return;
+      }
+      listDiv.innerHTML = '';
+      snap.forEach((docSnap) => {
+        const p = docSnap.data();
+        const id = docSnap.id;
+        const thumb = (p.media && p.media[0]) ? p.media[0] : null;
+
+        const card = document.createElement('div');
+        card.className = 'admin-card product-manage-card';
+        card.innerHTML = `
+          <div class="product-manage-top">
+            ${thumb
+              ? (thumb.type === 'video'
+                  ? `<video src="${thumb.url}" class="product-thumb" muted></video>`
+                  : `<img src="${thumb.url}" class="product-thumb">`)
+              : `<div class="product-thumb"></div>`}
+            <span class="media-count">${(p.media || []).length} media file(s)</span>
+          </div>
+          <input type="text" class="edit-name" value="${(p.name || '').replace(/"/g, '&quot;')}" placeholder="Product Name">
+          <select class="edit-category"></select>
+          <input type="number" class="edit-price" value="${p.price || 0}" placeholder="Price (KES)">
+          <textarea class="edit-caption" placeholder="Description">${p.caption || ''}</textarea>
+          <label class="field-label">Add more photos to this product</label>
+          <input type="file" class="edit-add-photos" accept="image/*" multiple>
+          <p class="error-msg edit-error"></p>
+          <p class="success-msg edit-success"></p>
+          <div class="edit-actions">
+            <button class="btn-secondary-full edit-save-btn">Save Changes</button>
+            <button class="btn-danger-full edit-delete-btn">Delete Product</button>
+          </div>
+        `;
+        listDiv.appendChild(card);
+
+        const catSelect = card.querySelector('.edit-category');
+        categoryNames.forEach(catName => {
+          const opt = document.createElement('option');
+          opt.value = catName;
+          opt.innerText = catName;
+          if (catName === p.category) opt.selected = true;
+          catSelect.appendChild(opt);
+        });
+
+        card.querySelector('.edit-save-btn').addEventListener('click', () => saveProductEdits(id, card));
+        card.querySelector('.edit-delete-btn').addEventListener('click', () => deleteProduct(id));
+      });
+    } catch (e) {
+      listDiv.innerHTML = '<p class="placeholder-text">Could not load products.</p>';
+    }
+  }
+
+  async function saveProductEdits(id, card) {
+    const name = card.querySelector('.edit-name').value.trim();
+    const category = card.querySelector('.edit-category').value;
+    const price = card.querySelector('.edit-price').value;
+    const caption = card.querySelector('.edit-caption').value.trim();
+    const addPhotosInput = card.querySelector('.edit-add-photos');
+    const errorMsg = card.querySelector('.edit-error');
+    const successMsg = card.querySelector('.edit-success');
+    errorMsg.innerText = '';
+    successMsg.innerText = '';
+
+    if (!name) { errorMsg.innerText = "Name can't be empty"; return; }
+
+    showLoading(true);
+    try {
+      const productRef = doc(db, "products", id);
+      const newPhotoFiles = Array.from(addPhotosInput.files || []);
+      let newMedia = [];
+
+      if (newPhotoFiles.length > 0) {
+        for (const file of newPhotoFiles) {
+          const data = await uploadOneFile(file, 'image', () => {});
+          newMedia.push({ type: 'photo', url: data.secure_url });
+        }
+        const existingSnap = await getDoc(productRef);
+        const existingMedia = existingSnap.exists() ? (existingSnap.data().media || []) : [];
+        newMedia = existingMedia.concat(newMedia);
+      }
+
+      const updates = {
+        name: name,
+        category: category,
+        price: price ? Number(price) : 0,
+        caption: caption
+      };
+      if (newMedia.length > 0) updates.media = newMedia;
+
+      await updateDoc(productRef, updates);
+      successMsg.innerText = "Saved!";
+      addPhotosInput.value = '';
+      await loadProducts();
+    } catch (e) {
+      errorMsg.innerText = "Failed to save changes.";
+    }
+    showLoading(false);
+  }
+
+  async function deleteProduct(id) {
+    if (!confirm("Delete this product permanently? This cannot be undone.")) return;
+    showLoading(true);
+    try {
+      await deleteDoc(doc(db, "products", id));
+      await loadProducts();
+    } catch (e) { /* ignore */ }
+    showLoading(false);
   }
 
   window.handleLogout = async function() {
