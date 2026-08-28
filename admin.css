@@ -11,6 +11,8 @@ body { overflow-y:auto; height:auto; min-height:100vh; }
 .brand-mini { font-weight:900; font-size:16px; color:#fff; letter-spacing:1px; }
 .brand-mini span { color:#f4c542; }
 
+.back-link { color:#f4c542; text-decoration:none; font-size:13px; font-weight:700; }
+
 .icon-btn {
   background:transparent; border:1px solid #f4c542; color:#f4c542;
   padding:6px 14px; border-radius:20px; font-size:13px;
@@ -44,6 +46,20 @@ body { overflow-y:auto; height:auto; min-height:100vh; }
 .section-title { color:#f4c542; font-size:19px; margin:20px 0 14px; }
 .section-title:first-child { margin-top:0; }
 
+.manage-products-btn {
+  display:block;
+  text-align:center;
+  background:rgba(244,197,66,0.12);
+  border:1px solid #f4c542;
+  color:#f4c542;
+  padding:14px;
+  border-radius:12px;
+  font-weight:700;
+  font-size:14px;
+  text-decoration:none;
+  margin-bottom:20px;
+}
+
 .admin-card {
   background:rgba(255,255,255,0.06);
   border:1px solid rgba(244,197,66,0.25);
@@ -62,47 +78,23 @@ body { overflow-y:auto; height:auto; min-height:100vh; }
   font-size:14px;
 }
 
-.field-label {
-  display:block;
-  color:#e0c9ff;
-  font-size:12px;
-  margin-bottom:6px;
-}
+.field-label { display:block; color:#e0c9ff; font-size:12px; margin-bottom:6px; }
 
 .btn-primary-full {
-  width:100%;
-  padding:13px;
-  border:none;
-  border-radius:8px;
-  background:#f4c542;
-  color:#2b0a4e;
-  font-weight:700;
-  font-size:15px;
+  width:100%; padding:13px; border:none; border-radius:8px;
+  background:#f4c542; color:#2b0a4e; font-weight:700; font-size:15px;
 }
 
 .btn-secondary-full {
-  width:100%;
-  padding:12px;
-  border:1px solid #f4c542;
-  border-radius:8px;
-  background:transparent;
-  color:#f4c542;
-  font-weight:700;
-  font-size:14px;
+  width:100%; padding:12px; border:1px solid #f4c542; border-radius:8px;
+  background:transparent; color:#f4c542; font-weight:700; font-size:14px;
+  margin-bottom:14px;
 }
 
 .btn-danger-full {
-  width:100%;
-  padding:12px;
-  border:1px solid #ff6b6b;
-  border-radius:8px;
-  background:transparent;
-  color:#ff6b6b;
-  font-weight:700;
-  font-size:14px;
+  width:100%; padding:12px; border:1px solid #ff6b6b; border-radius:8px;
+  background:transparent; color:#ff6b6b; font-weight:700; font-size:14px;
 }
-
-.btn-primary-full:disabled { opacity:0.6; }
 
 .edit-actions { display:flex; flex-direction:column; gap:8px; margin-top:6px; }
 
@@ -112,93 +104,87 @@ body { overflow-y:auto; height:auto; min-height:100vh; }
 .tip-text { color:#f4c542; font-size:12px; margin-bottom:12px; line-height:1.5; }
 
 .progress-wrap {
-  width:100%;
-  height:8px;
-  background:rgba(255,255,255,0.15);
-  border-radius:6px;
-  overflow:hidden;
-  margin-bottom:4px;
+  width:100%; height:8px; background:rgba(255,255,255,0.15);
+  border-radius:6px; overflow:hidden; margin-bottom:4px;
 }
 
-.progress-bar {
-  height:100%;
-  background:#f4c542;
-  width:0%;
-  transition:width 0.2s ease;
-}
+.progress-bar { height:100%; background:#f4c542; width:0%; transition:width 0.2s ease; }
 
-.category-list {
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-bottom:14px;
-}
+.category-list { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
 
 .category-chip {
-  background:rgba(244,197,66,0.15);
-  border:1px solid #f4c542;
-  color:#f4c542;
-  padding:6px 10px;
-  border-radius:16px;
-  font-size:12px;
-  display:flex;
-  align-items:center;
-  gap:6px;
+  background:rgba(244,197,66,0.15); border:1px solid #f4c542; color:#f4c542;
+  padding:6px 10px; border-radius:16px; font-size:12px;
+  display:flex; align-items:center; gap:6px;
 }
 
-.chip-remove {
-  background:none;
-  border:none;
-  color:#f4c542;
-  font-size:12px;
-  cursor:pointer;
-  padding:0;
-}
-
-.queue-list {
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  margin-bottom:14px;
-  max-height:280px;
-  overflow-y:auto;
-}
-
-.queue-item {
-  background:rgba(0,0,0,0.25);
-  border:1px solid rgba(244,197,66,0.2);
-  border-radius:8px;
-  padding:10px;
-}
-
-.queue-name {
-  color:#fff;
-  font-size:11px;
-  margin-bottom:6px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.queue-status { color:#e0c9ff; font-size:11px; }
-.queue-success { color:#7ee787; }
-.queue-fail { color:#ff6b6b; }
-
-.product-manage-card { }
+.chip-remove { background:none; border:none; color:#f4c542; font-size:12px; cursor:pointer; padding:0; }
 
 .product-manage-top {
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-bottom:14px;
+  display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;
 }
 
 .product-thumb {
-  width:56px; height:56px;
-  border-radius:8px;
-  object-fit:cover;
-  background:#000;
-  flex-shrink:0;
+  width:56px; height:56px; border-radius:8px; object-fit:cover;
+  background:#000; flex-shrink:0;
 }
 
-.media-count { color:#e0c9ff; font-size:12px; }
+.media-count { color:#e0c9ff; font-size:12px; flex:1; }
+
+.stock-toggle {
+  display:flex; align-items:center; gap:6px;
+  color:#e0c9ff; font-size:12px; font-weight:600;
+}
+
+.stock-toggle input { width:auto; margin-bottom:0; }
+
+/* Floating job tracker */
+.job-tracker {
+  position:fixed;
+  bottom:0; right:0;
+  width:260px;
+  max-width:calc(100% - 20px);
+  margin:0 10px 10px 0;
+  background:#2b0a4e;
+  border:1px solid #f4c542;
+  border-radius:12px 12px 0 0;
+  z-index:500;
+  display:none;
+  box-shadow:0 -4px 20px rgba(0,0,0,0.4);
+}
+
+.job-tracker.visible { display:block; }
+
+.job-tracker-header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 14px;
+  color:#f4c542;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.job-tracker-body {
+  max-height:220px;
+  overflow-y:auto;
+  padding:0 12px 12px;
+}
+
+.job-tracker.collapsed .job-tracker-body { display:none; }
+
+.job-item {
+  background:rgba(0,0,0,0.3);
+  border:1px solid rgba(244,197,66,0.2);
+  border-radius:8px;
+  padding:10px;
+  margin-bottom:8px;
+}
+
+.job-name {
+  color:#fff; font-size:11px; margin-bottom:6px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+.job-status { color:#e0c9ff; font-size:11px; }
+.job-item.job-done .job-status { color:#7ee787; }
+.job-item.job-error .job-status { color:#ff6b6b; }
