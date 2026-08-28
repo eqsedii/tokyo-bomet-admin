@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokyo Bomet - Manage Products</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div id="loading-screen"><div class="loader-logo">TOKYO BOMET</div></div>
+
+<header class="top-bar">
+  <a href="admin.html" class="back-link">← Back</a>
+  <div class="brand-mini">MANAGE <span>PRODUCTS</span></div>
+  <button class="icon-btn" onclick="handleLogout()">Logout</button>
+</header>
+
+<div class="tab-content">
+  <div class="admin-card">
+    <input type="text" id="searchInput" placeholder="Search by product name...">
+  </div>
+
+  <div id="productList"></div>
+  <button class="btn-secondary-full" id="loadMoreBtn" style="display:none;">Load More</button>
+</div>
+
+<script type="module">
+  import { auth, db } from './firebase-config.js';
+  import { onAuthStateChanged, signOut }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, query, orderBy }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  function showLoading(show) {
+    document.getElementById('loading-screen').classList.toggle('active', show);
+  }
+
+  let allProducts = [];
+  let categoryNames = [];
+  let visibleCount = 10;
+  const PAGE_SIZE = 10;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user || sessionStorage.getItem('adminVerified') !== 'true') {
+      window.location.href = "index.html";
+      return;
+    }
+    const adminDoc = await getDoc(doc(db, "admins", user.uid));
+    if (!adminDoc.exists()) {
+      window.location.href = "index.html";
+      return;
+    }
+    await loadCategories();
+    await loadProducts();
+  });
+
+  async function loadCategories() {
+    categoryNames = [];
+    try {
+      const snap = await getDocs(query(collection(db, "categories"), orderBy("name")));
+      snap.forEach(d => categoryNames.push(d.data().name));
+    } catch (e) { /* ignore */ }
+  }
+
+  async function loadProducts() {
+    showLoading(true);
+    try {
+      const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      allProducts = [];
+      snap.forEach(d => allProducts.push({ id: d.id, ...d.data() }));
+    } catch (e) { allProducts = []; }
+    visibleCount = PAGE_SIZE;
+    renderList();
+    showLoading(false);
+  }
+
+  document.getElementById('searchInput').addEventListener('input', () => {
+    visibleCount = PAGE_SIZE;
+    renderList();
+  });
+
+  document.getElementById('loadMoreBtn').addEventListener('click', () => {
+    visibleCount += PAGE_SIZE;
+    renderList();
+  });
+
+  function renderList() {
+    const listDiv = document.getElementById('productList');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const search = document.getElementById('searchInput').value.trim().toLowerCase();
+
+    const filtered = search
+      ? allProducts.filter(p => (p.name || '').toLowerCase().includes(search))
+      : allProducts;
+
+    if (filtered.length === 0) {
+      listDiv.innerHTML = '<p class="placeholder-text">No products found.</p>';
+      loadMoreBtn.style.display = 'none';
+      return;
+    }
+
+    const toShow = filtered.slice(0, visibleCount);
+    listDiv.innerHTML = '';
+
+    toShow.forEach(p => {
+      const id = p.id;
+      const thumb = (p.media && p.media[0]) ? p.media[0] : null;
+      const inStock = p.inStock !== false;
+
+      const card = document.createElement('div');
+      card.className = 'admin-card product-manage-card';
+      card.innerHTML = `
+        <div class="product-manage-top">
+          ${thumb
+            ? (thumb.type === 'video'
+                ? `<video src="${thumb.url}" class="product-thumb" muted></video>`
+                : `<img src="${thumb.url}" class="product-thumb">`)
+            : `<div class="product-thumb"></div>`}
+          <span class="media-count">${(p.media || []).length} media file(s)</span>
+          <label class="stock-toggle">
+            <input type="checkbox" class="stock-checkbox" ${inStock ? 'checked' : ''}>
+            <span>${inStock ? 'In Stock' : 'Sold Out'}</span>
+          </label>
+        </div>
+        <input type="text" class="edit-name" value="${(p.name || '').replace(/"/g, '&quot;')}" placeholder="Product Name">
+        <select class="edit-category"></select>
+        <input type="number" class="edit-price" value="${p.price || 0}" placeholder="Price (KES)">
+        <textarea class="edit-caption" placeholder="Description">${p.caption || ''}</textarea>
+        <label class="field-label">Add more photos to this product</label>
+        <input type="file" class="edit-add-photos" accept="image/*" multiple>
+        <p class="error-msg edit-error"></p>
+        <p class="success-msg edit-success"></p>
+        <div class="edit-actions">
+          <button class="btn-secondary-full edit-save-btn">Save Changes</button>
+          <button class="btn-danger-full edit-delete-btn">Delete Product</button>
+        </div>
+      `;
+      listDiv.appendChild(card);
+
+      const catSelect = card.querySelector('.edit-category');
+      categoryNames.forEach(catName => {
+        const opt = document.createElement('option');
+        opt.value = catName;
+        opt.innerText = catName;
+        if (catName === p.category) opt.selected = true;
+        catSelect.appendChild(opt);
+      });
+
+      card.querySelector('.stock-checkbox').addEventListener('change', (e) => toggleStock(id, e.target.checked));
+      card.querySelector('.edit-save-btn').addEventListener('click', () => saveProductEdits(id, card));
+      card.querySelector('.edit-delete-btn').addEventListener('click', () => deleteProduct(id));
+    });
+
+    loadMoreBtn.style.display = filtered.length > visibleCount ? 'block' : 'none';
+  }
+
+  async function toggleStock(id, inStock) {
+    try {
+      await updateDoc(doc(db, "products", id), { inStock });
+      const p = allProducts.find(x => x.id === id);
+      if (p) p.inStock = inStock;
+    } catch (e) { /* ignore */ }
+  }
+
+  function uploadOneFile(file, resourceType, onProgress) {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'tokyo-bomet-uploads');
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/kihyxfyk/${resourceType}/upload`);
+      xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
+        else reject(new Error('Upload failed'));
+      };
+      xhr.onerror = function() { reject(new Error('Network error')); };
+      xhr.send(formData);
+    });
+  }
+
+  async function saveProductEdits(id, card) {
+    const name = card.querySelector('.edit-name').value.trim();
+    const category = card.querySelector('.edit-category').value;
+    const price = card.querySelector('.edit-price').value;
+    const caption = card.querySelector('.edit-caption').value.trim();
+    const addPhotosInput = card.querySelector('.edit-add-photos');
+    const errorMsg = card.querySelector('.edit-error');
+    const successMsg = card.querySelector('.edit-success');
+    errorMsg.innerText = '';
+    successMsg.innerText = '';
+
+    if (!name) { errorMsg.innerText = "Name can't be empty"; return; }
+
+    showLoading(true);
+    try {
+      const productRef = doc(db, "products", id);
+      const newPhotoFiles = Array.from(addPhotosInput.files || []);
+      let newMedia = [];
+
+      if (newPhotoFiles.length > 0) {
+        for (const file of newPhotoFiles) {
+          const data = await uploadOneFile(file, 'image', () => {});
+          newMedia.push({ type: 'photo', url: data.secure_url });
+        }
+        const existingSnap = await getDoc(productRef);
+        const existingMedia = existingSnap.exists() ? (existingSnap.data().media || []) : [];
+        newMedia = existingMedia.concat(newMedia);
+      }
+
+      const updates = { name, category, price: price ? Number(price) : 0, caption };
+      if (newMedia.length > 0) updates.media = newMedia;
+
+      await updateDoc(productRef, updates);
+      successMsg.innerText = "Saved!";
+      addPhotosInput.value = '';
+      await loadProducts();
+    } catch (e) {
+      errorMsg.innerText = "Failed to save changes.";
+    }
+    showLoading(false);
+  }
+
+  async function deleteProduct(id) {
+    if (!confirm("Delete this product permanently? This cannot be undone.")) return;
+    showLoading(true);
+    try {
+      await deleteDoc(doc(db, "products", id));
+      await loadProducts();
+    } catch (e) { /* ignore */ }
+    showLoading(false);
+  }
+
+  window.handleLogout = async function() {
+    sessionStorage.removeItem('adminVerified');
+    await signOut(auth);
+    window.location.href = "index.html";
+  }
+</script>
+</body>
+</html>
